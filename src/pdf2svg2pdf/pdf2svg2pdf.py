@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import logging
-import re
 import subprocess
 from pathlib import Path
-from typing import List
 
-import fitz
 import fire
+import fitz
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +15,7 @@ class PDF2SVG2PDF:
         inpath: str,
         outdir: str = None,
         advanced: bool = False,
-        backends: List[str] = [],
+        backends: list[str] = [],
         verbose: bool = False,
         pdf_filters=[],
         svg_filters=[],
@@ -45,12 +43,12 @@ class PDF2SVG2PDF:
         else:
             logging.basicConfig(level=logging.WARNING)
 
-    def convert_pdf_to_pdfpages_fitz(self, pdf_path: Path, outdir: Path) -> List[Path]:
+    def convert_pdf_to_pdfpages_fitz(self, pdf_path: Path, outdir: Path) -> list[Path]:
         logger.info(f"Converting {pdf_path} to PDF pages using Fitz")
         doc = fitz.open(pdf_path)
         output_paths = []
         for i in range(len(doc)):
-            page = doc.load_page(i)
+            doc.load_page(i)
             output_path = outdir / f"{pdf_path.stem}-{i:04d}.pdf"
             single_page_doc = fitz.open()
             single_page_doc.insert_pdf(doc, from_page=i, to_page=i)
@@ -61,7 +59,7 @@ class PDF2SVG2PDF:
 
     def convert_pdf_to_pdfpages_poppler(
         self, pdf_path: Path, outdir: Path
-    ) -> List[Path]:
+    ) -> list[Path]:
         logger.info(f"Converting {pdf_path} to PDF pages using Poppler")
         output_pathmask = outdir / f"{pdf_path.stem}-%04d.pdf"
         cmd = f"pdfseparate {pdf_path} {output_pathmask}"

@@ -2,14 +2,14 @@
 import concurrent.futures
 import re
 import subprocess
+import tempfile
 from collections import Counter
 from functools import partial
 from pathlib import Path
-from typing import List
-import tempfile
 
 import fire
 import fitz
+
 
 def create_folders(inpath: Path, outdir: Path):
     inpath_stem = inpath.stem
@@ -22,13 +22,14 @@ def create_folders(inpath: Path, outdir: Path):
         folder.mkdir(parents=True, exist_ok=True)
     return folders
 
-def separate_pdf_with_filters(inpath: Path, stem, outdir: Path) -> List[Path]:
+
+def separate_pdf_with_filters(inpath: Path, stem, outdir: Path) -> list[Path]:
     doc = fitz.open(inpath)
     output_dir = outdir / f"{stem}-pdf-t"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_files = []
     for i in range(len(doc)):
-        page = doc.load_page(i)
+        doc.load_page(i)
         output_file = output_dir / f"{stem}-{i:04d}.pdf"
         single_page_doc = fitz.open()
         single_page_doc.insert_pdf(doc, from_page=i, to_page=i)
@@ -37,13 +38,15 @@ def separate_pdf_with_filters(inpath: Path, stem, outdir: Path) -> List[Path]:
         output_files.append(output_file)
     return output_files
 
-def separate_pdf_no_filters(inpath: Path, stem, outdir: Path) -> List[Path]:
+
+def separate_pdf_no_filters(inpath: Path, stem, outdir: Path) -> list[Path]:
     output = outdir / f"{stem}-pdf-t" / f"{stem}-%04d.pdf"
     cmd = f"pdfseparate {inpath} {output}"
     subprocess.run(cmd, shell=True, check=True)
     return list(output.parent.glob("*.pdf"))
 
-def separate_pdf(inpath: Path, outdir: Path, pdf_filters=()) -> List[Path]:
+
+def separate_pdf(inpath: Path, outdir: Path, pdf_filters=()) -> list[Path]:
     stem = inpath.stem
     if not pdf_filters:
         return separate_pdf_no_filters(inpath, stem, outdir)
@@ -91,9 +94,13 @@ def chain_convert(args, pdf_filters=(), svg_filters=()):
             old_filters = svg_filters.split(",")
             svg_filters = []
             for svg_filter in old_filters:
-                svg_filter = eval(f"lambda svg: svg{svg_filter}") if svg_filter.startswith(".") else eval(svg_filter)
+                svg_filter = (
+                    eval(f"lambda svg: svg{svg_filter}")
+                    if svg_filter.startswith(".")
+                    else eval(svg_filter)
+                )
                 svg_filters.append(svg_filter)
-        with open(svg, "r") as svg_file:
+        with open(svg) as svg_file:
             svg_content = svg_file.read()
 
         for svg_filter in svg_filters:
@@ -112,7 +119,9 @@ def process_single_pdf(inpath: Path, outdir: Path, pdf_filters=None, svg_filters
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
         tasks = [(pdf, svg_q_folder, pdf_q_folder) for pdf in pdf_list]
-        chain_convert_func = partial(chain_convert, pdf_filters=pdf_filters, svg_filters=svg_filters)
+        chain_convert_func = partial(
+            chain_convert, pdf_filters=pdf_filters, svg_filters=svg_filters
+        )
         converted_pdfs = list(executor.map(chain_convert_func, tasks))
 
     unite_pdfs(sorted(converted_pdfs), inpath, outdir)
@@ -120,11 +129,12 @@ def process_single_pdf(inpath: Path, outdir: Path, pdf_filters=None, svg_filters
     print(f"{outdir / f'{inpath.stem}-q.pdf'}")
 
 
-
 def process_task_with_filters(args):
     task, pdf_filters, svg_filters = args
     inpath, outdir = task
-    return process_single_pdf(inpath, outdir, pdf_filters=pdf_filters, svg_filters=svg_filters)
+    return process_single_pdf(
+        inpath, outdir, pdf_filters=pdf_filters, svg_filters=svg_filters
+    )
 
 
 def process_task_no_filters(task):
@@ -135,7 +145,9 @@ def chain_convert_with_filters(args, pdf_filters, svg_filters):
     return chain_convert(args, pdf_filters=pdf_filters, svg_filters=svg_filters)
 
 
-def pdf2svg2pdf(inpath: str, outdir: str = None, dir: bool = False, pdf_filters=(), svg_filters=()):
+def pdf2svg2pdf(
+    inpath: str, outdir: str = None, dir: bool = False, pdf_filters=(), svg_filters=()
+):
     if outdir is None:
         outdir = Path(inpath).parent
     else:
