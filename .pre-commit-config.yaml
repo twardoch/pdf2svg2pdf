@@ -1,3 +1,6 @@
+# Pre-commit configuration for pdf2svg2pdf
+# this_file: .pre-commit-config.yaml
+
 exclude: '^docs/conf.py'
 
 repos:
@@ -11,57 +14,71 @@ repos:
   - id: check-merge-conflict
   - id: check-xml
   - id: check-yaml
+  - id: check-toml
   - id: debug-statements
   - id: end-of-file-fixer
   - id: requirements-txt-fixer
   - id: mixed-line-ending
-    args: ['--fix=auto']  # replace 'auto' with 'lf' to enforce Linux/Mac line endings or 'crlf' for Windows
+    args: ['--fix=auto']
+  - id: check-executables-have-shebangs
+  - id: check-shebang-scripts-are-executable
 
-## If you want to automatically "modernize" your Python code:
-# - repo: https://github.com/asottile/pyupgrade
-#   rev: v3.3.1
-#   hooks:
-#   - id: pyupgrade
-#     args: ['--py37-plus']
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.3.1
+  hooks:
+  - id: pyupgrade
+    args: ['--py38-plus']
 
-## If you want to avoid flake8 errors due to unused vars or imports:
-# - repo: https://github.com/PyCQA/autoflake
-#   rev: v2.0.0
-#   hooks:
-#   - id: autoflake
-#     args: [
-#       --in-place,
-#       --remove-all-unused-imports,
-#       --remove-unused-variables,
-#     ]
+- repo: https://github.com/PyCQA/autoflake
+  rev: v2.0.0
+  hooks:
+  - id: autoflake
+    args: [
+      --in-place,
+      --remove-all-unused-imports,
+      --remove-unused-variables,
+    ]
 
 - repo: https://github.com/PyCQA/isort
-  rev: 5.11.4
+  rev: 5.12.0
   hooks:
   - id: isort
+    args: [--profile=black, --line-length=88]
 
 - repo: https://github.com/psf/black
-  rev: stable
+  rev: 23.7.0
   hooks:
   - id: black
     language_version: python3
-
-## If like to embrace black styles even in the docs:
-# - repo: https://github.com/asottile/blacken-docs
-#   rev: v1.13.0
-#   hooks:
-#   - id: blacken-docs
-#     additional_dependencies: [black]
+    args: [--line-length=88]
 
 - repo: https://github.com/PyCQA/flake8
-  rev: 5.0.4
+  rev: 6.0.0
   hooks:
   - id: flake8
-  ## You can add flake8 plugins via `additional_dependencies`:
-  #  additional_dependencies: [flake8-bugbear]
+    args: [--max-line-length=88, --extend-ignore=E203,W503]
 
-## Check for misspells in documentation files:
-# - repo: https://github.com/codespell-project/codespell
-#   rev: v2.2.2
-#   hooks:
-#   - id: codespell
+- repo: https://github.com/pycqa/bandit
+  rev: 1.7.5
+  hooks:
+  - id: bandit
+    args: [-r, src/]
+    exclude: tests/
+
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v1.4.1
+  hooks:
+  - id: mypy
+    additional_dependencies: [types-all]
+    args: [--ignore-missing-imports]
+
+- repo: local
+  hooks:
+  - id: pytest-fast
+    name: pytest-fast
+    entry: pytest
+    language: system
+    types: [python]
+    args: [tests/, --tb=short, -x]
+    pass_filenames: false
+    always_run: true
