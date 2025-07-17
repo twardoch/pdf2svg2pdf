@@ -1,5 +1,6 @@
 # GitHub Actions CI/CD pipeline for pdf2svg2pdf
-# this_file: .github/workflows/ci.yml
+# THIS FILE SHOULD BE MOVED TO .github/workflows/ci.yml
+# The GitHub App cannot modify workflow files due to permissions
 
 name: CI/CD
 
