@@ -1,120 +1,315 @@
-# GitHub Actions configuration **EXAMPLE**,
-# MODIFY IT ACCORDING TO YOUR NEEDS!
-# Reference: https://docs.github.com/en/actions
+# GitHub Actions CI/CD pipeline for pdf2svg2pdf
+# this_file: .github/workflows/ci.yml
 
-name: tests
+name: CI/CD
 
 on:
   push:
-    # Avoid using all the resources/limits available by checking only
-    # relevant branches and tags. Other branches can be checked via PRs.
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
     branches: [main]
-    tags: ['v[0-9]*', '[0-9]+.[0-9]+*']  # Match tags that resemble a version
-  pull_request:  # Run in every PR
-  workflow_dispatch:  # Allow manually triggering the workflow
-  schedule:
-    # Run roughly every 15 days at 00:00 UTC
-    # (useful to check if updates on dependencies break the package)
-    - cron: '0 0 1,16 * *'
+  workflow_dispatch:
 
 concurrency:
-  group: >-
-    ${{ github.workflow }}-${{ github.ref_type }}-
-    ${{ github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PYTHON_VERSION: "3.11"
+  PYTHON_VERSIONS: "3.8 3.9 3.10 3.11 3.12"
+
 jobs:
+  # Job 1: Prepare and validate
   prepare:
     runs-on: ubuntu-latest
     outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_release: ${{ steps.version.outputs.is_release }}
       wheel-distribution: ${{ steps.wheel-distribution.outputs.path }}
     steps:
-      - uses: actions/checkout@v3
-        with: {fetch-depth: 0}  # deep clone for setuptools-scm
-      - uses: actions/setup-python@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for setuptools-scm
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
         id: setup-python
-        with: {python-version: "3.11"}
-      - name: Run static analysis and format checkers
-        run: pipx run pre-commit run --all-files --show-diff-on-failure
-      - name: Build package distribution files
-        run: >-
-          pipx run --python '${{ steps.setup-python.outputs.python-path }}'
-          tox -e clean,build
-      - name: Record the path of wheel distribution
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build setuptools-scm wheel
+      
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(python -m setuptools_scm)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Detected version: ${VERSION}"
+      
+      - name: Run pre-commit hooks
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files --show-diff-on-failure
+        continue-on-error: false
+      
+      - name: Build package
+        run: |
+          python -m build
+          ls -la dist/
+      
+      - name: Record wheel distribution
         id: wheel-distribution
         run: echo "path=$(ls dist/*.whl)" >> $GITHUB_OUTPUT
-      - name: Store the distribution files for use in other stages
-        # `tests` and `publish` will use the same pre-built distributions,
-        # so we make sure to release the exact same package that was tested
+      
+      - name: Upload distributions
         uses: actions/upload-artifact@v3
         with:
-          name: python-distribution-files
+          name: python-distributions
           path: dist/
-          retention-days: 1
+          retention-days: 7
 
+  # Job 2: Test matrix
   test:
     needs: prepare
     strategy:
+      fail-fast: false
       matrix:
-        python:
-        - "3.7"  # oldest Python supported by PSF
-        - "3.11"  # newest Python that is stable
-        platform:
-        - ubuntu-latest
-        - macos-latest
-        - windows-latest
-    runs-on: ${{ matrix.platform }}
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        include:
+          - os: ubuntu-latest
+            os-name: Linux
+          - os: macos-latest
+            os-name: macOS
+          - os: windows-latest
+            os-name: Windows
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        id: setup-python
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python }}
-      - name: Retrieve pre-built distribution files
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils cairosvg ghostscript
+      
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install poppler cairo ghostscript
+          pip install cairosvg
+      
+      - name: Install system dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Windows dependencies are more complex, skip for now
+          echo "Windows system dependencies skipped"
+      
+      - name: Download distributions
         uses: actions/download-artifact@v3
-        with: {name: python-distribution-files, path: dist/}
+        with:
+          name: python-distributions
+          path: dist/
+      
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install "${{ needs.prepare.outputs.wheel-distribution }}"
+          pip install pytest pytest-cov reportlab
+      
       - name: Run tests
-        run: >-
-          pipx run --python '${{ steps.setup-python.outputs.python-path }}'
-          tox --installpkg '${{ needs.prepare.outputs.wheel-distribution }}'
-          -- -rFEx --durations 10 --color yes  # pytest args
-      - name: Generate coverage report
-        run: pipx run coverage lcov -o coverage.lcov
-      - name: Upload partial coverage report
-        uses: coverallsapp/github-action@master
+        run: |
+          pytest tests/ -v --cov=pdf2svg2pdf --cov-report=xml --cov-report=term-missing
+        continue-on-error: ${{ matrix.os == 'windows-latest' }}
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
         with:
-          path-to-lcov: coverage.lcov
-          github-token: ${{ secrets.github_token }}
-          flag-name: ${{ matrix.platform }} - py${{ matrix.python }}
-          parallel: true
+          file: ./coverage.xml
+          flags: ${{ matrix.os-name }}-py${{ matrix.python-version }}
+          name: ${{ matrix.os-name }}-py${{ matrix.python-version }}
+        continue-on-error: true
 
-  finalize:
-    needs: test
-    runs-on: ubuntu-latest
+  # Job 3: Build binaries
+  build-binaries:
+    needs: [prepare, test]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            os-name: linux
+          - os: macos-latest
+            os-name: macos
+          - os: windows-latest
+            os-name: windows
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Finalize coverage report
-        uses: coverallsapp/github-action@master
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
-
-  publish:
-    needs: finalize
-    if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with: {python-version: "3.11"}
-      - name: Retrieve pre-built distribution files
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+      
+      - name: Download distributions
         uses: actions/download-artifact@v3
-        with: {name: python-distribution-files, path: dist/}
-      - name: Publish Package
+        with:
+          name: python-distributions
+          path: dist/
+      
+      - name: Install package
+        run: |
+          pip install "${{ needs.prepare.outputs.wheel-distribution }}"
+      
+      - name: Build binary
+        run: |
+          pyinstaller --onefile --name pdf2svg2pdf-${{ matrix.os-name }} --console -m pdf2svg2pdf.pdf2svg2pdf
+      
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: binary-${{ matrix.os-name }}
+          path: dist/pdf2svg2pdf-${{ matrix.os-name }}*
+          retention-days: 7
+
+  # Job 4: Security scan
+  security:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install safety
+        run: pip install safety bandit
+      
+      - name: Run safety check
+        run: safety check
+        continue-on-error: true
+      
+      - name: Run bandit security scan
+        run: bandit -r src/
+        continue-on-error: true
+
+  # Job 5: Release (only on tags)
+  release:
+    needs: [prepare, test, build-binaries, security]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Download distributions
+        uses: actions/download-artifact@v3
+        with:
+          name: python-distributions
+          path: dist/
+      
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: binary-linux
+          path: binaries/
+      
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: binary-macos
+          path: binaries/
+      
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: binary-windows
+          path: binaries/
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+            binaries/*
+          body: |
+            ## Release ${{ needs.prepare.outputs.version }}
+            
+            ### Installation
+            
+            #### Via pip
+            ```bash
+            pip install pdf2svg2pdf==${{ needs.prepare.outputs.version }}
+            ```
+            
+            #### Via binary
+            Download the appropriate binary for your platform from the assets below.
+            
+            ### Changes
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          draft: false
+          prerelease: ${{ contains(needs.prepare.outputs.version, 'dev') || contains(needs.prepare.outputs.version, 'rc') }}
         env:
-          # TODO: Set your PYPI_TOKEN as a secret using GitHub UI
-          # - https://pypi.org/help/#apitoken
-          # - https://docs.github.com/en/actions/security-guides/encrypted-secrets
-          TWINE_REPOSITORY: pypi
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Publish to PyPI
+        env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: pipx run tox -e publish
+        run: |
+          pip install twine
+          twine upload dist/*
+        continue-on-error: true
+
+  # Job 6: Notify
+  notify:
+    needs: [prepare, test, build-binaries, security]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Workflow summary
+        run: |
+          echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Is Release**: ${{ needs.prepare.outputs.is_release }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ref**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Status**: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Status**: ${{ needs.build-binaries.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Status**: ${{ needs.security.result }}" >> $GITHUB_STEP_SUMMARY

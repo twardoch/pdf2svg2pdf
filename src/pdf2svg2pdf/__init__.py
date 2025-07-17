@@ -14,3 +14,8 @@ except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
 finally:
     del version, PackageNotFoundError
+
+# Import main classes and functions
+from .pdf2svg2pdf import PDF2SVG2PDF
+
+__all__ = ["PDF2SVG2PDF", "__version__"]
