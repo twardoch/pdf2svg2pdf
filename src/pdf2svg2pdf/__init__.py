@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# this_file: src/pdf2svg2pdf/__init__.py
+"""PDF to SVG to PDF converter with optional transformations."""
+
 import sys
 
 if sys.version_info[:2] >= (3, 8):
@@ -15,7 +19,43 @@ except PackageNotFoundError:  # pragma: no cover
 finally:
     del version, PackageNotFoundError
 
-# Import main classes and functions
-from .pdf2svg2pdf import PDF2SVG2PDF
+# New API imports
+from .config import Configuration, load_configuration
+from .core import (
+    Converter,
+    ProcessingPipeline,
+    PDF2SVG2PDFError,
+    BackendError,
+    FilterError,
+    ValidationError,
+    ConfigurationError,
+)
+from .backends import Backend, BackendRegistry
+from .filters import Filter, FilterRegistry
 
-__all__ = ["PDF2SVG2PDF", "__version__"]
+# Legacy API imports for backwards compatibility
+from .pdf2svg2pdf import PDF2SVG2PDF
+from .pdf2svg2pdf import convert_pdfs
+
+__all__ = [
+    # Version
+    "__version__",
+    # New API
+    "Configuration",
+    "load_configuration",
+    "Converter",
+    "ProcessingPipeline",
+    "Backend",
+    "BackendRegistry",
+    "Filter",
+    "FilterRegistry",
+    # Exceptions
+    "PDF2SVG2PDFError",
+    "BackendError",
+    "FilterError",
+    "ValidationError",
+    "ConfigurationError",
+    # Legacy API
+    "PDF2SVG2PDF",
+    "convert_pdfs",
+]
