@@ -16,28 +16,29 @@ from .base import Filter
 
 class SVGOptimizeFilter(Filter):
     """Optimize SVG using SVGO."""
-    
+
     @property
     def name(self) -> str:
         """Filter identifier."""
         return "optimize"
-    
+
     @property
     def description(self) -> str:
         """Human-readable description."""
         return "Optimize SVG file size and structure"
-    
+
     @property
     def supported_formats(self) -> set[str]:
         """Set of supported file formats."""
         return {"svg"}
-    
-    def apply(self, content: str) -> str:
+
+    # SVG filters only ever handle str, so they narrow the generic base.
+    def apply(self, content: str) -> str:  # type: ignore[override]
         """Apply SVGO optimization to SVG.
-        
+
         Args:
             content: SVG content as string
-            
+
         Returns:
             Optimized SVG content
         """
@@ -47,7 +48,7 @@ class SVGOptimizeFilter(Filter):
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.warning("SVGO not available, skipping optimization")
             return content
-        
+
         try:
             # Run svgo
             result = subprocess.run(
@@ -57,9 +58,9 @@ class SVGOptimizeFilter(Filter):
                 text=True,
                 check=True,
             )
-            
+
             optimized = result.stdout
-            
+
             # Log optimization results
             original_size = len(content)
             optimized_size = len(optimized)
@@ -68,9 +69,9 @@ class SVGOptimizeFilter(Filter):
                 f"Optimized SVG from {original_size} to {optimized_size} chars "
                 f"({ratio:.1f}% reduction)"
             )
-            
+
             return optimized
-            
+
         except subprocess.CalledProcessError as e:
             logger.error(f"SVGO failed: {e.stderr}")
             # Return original content on error
@@ -79,62 +80,63 @@ class SVGOptimizeFilter(Filter):
 
 class SVGTransparentWhiteFilter(Filter):
     """Make white backgrounds transparent in SVG."""
-    
+
     @property
     def name(self) -> str:
         """Filter identifier."""
         return "transparent_white"
-    
+
     @property
     def description(self) -> str:
         """Human-readable description."""
         return "Make white backgrounds transparent"
-    
+
     @property
     def supported_formats(self) -> set[str]:
         """Set of supported file formats."""
         return {"svg"}
-    
-    def apply(self, content: str) -> str:
+
+    # SVG filters only ever handle str, so they narrow the generic base.
+    def apply(self, content: str) -> str:  # type: ignore[override]
         """Make white fills transparent.
-        
+
         Args:
             content: SVG content as string
-            
+
         Returns:
             Modified SVG content
         """
         # Replace various white fill patterns with transparent
         patterns = [
-            (r'fill:rgb\(100%,100%,100%\);', 'fill:none;'),
-            (r'fill:rgb\(255,255,255\);', 'fill:none;'),
-            (r'fill:#ffffff;', 'fill:none;'),
-            (r'fill:#FFFFFF;', 'fill:none;'),
+            (r"fill:rgb\(100%,100%,100%\);", "fill:none;"),
+            (r"fill:rgb\(255,255,255\);", "fill:none;"),
+            (r"fill:#ffffff;", "fill:none;"),
+            (r"fill:#FFFFFF;", "fill:none;"),
             (r'fill="white"', 'fill="none"'),
             (r'fill="rgb\(255,255,255\)"', 'fill="none"'),
             (r'fill="#ffffff"', 'fill="none"'),
             (r'fill="#FFFFFF"', 'fill="none"'),
         ]
-        
+
         modified = content
         replacements = 0
-        
+
         for pattern, replacement in patterns:
             modified, count = re.subn(pattern, replacement, modified)
             replacements += count
-        
+
         if replacements > 0:
             logger.debug(f"Made {replacements} white fills transparent")
-        
+
         return modified
 
 
 class SVGColorReplaceFilter(Filter):
     """Replace colors in SVG."""
-    
+
     def __init__(self, config: FilterConfig | None = None) -> None:
         """Initialize filter.
-        
+
         Args:
             config: Filter configuration
         """
@@ -143,54 +145,55 @@ class SVGColorReplaceFilter(Filter):
         self.color_map = {}
         if config and config.parameters:
             self.color_map = config.parameters.get("color_map", {})
-    
+
     @property
     def name(self) -> str:
         """Filter identifier."""
         return "color_replace"
-    
+
     @property
     def description(self) -> str:
         """Human-readable description."""
         return "Replace specific colors in SVG"
-    
+
     @property
     def supported_formats(self) -> set[str]:
         """Set of supported file formats."""
         return {"svg"}
-    
-    def apply(self, content: str) -> str:
+
+    # SVG filters only ever handle str, so they narrow the generic base.
+    def apply(self, content: str) -> str:  # type: ignore[override]
         """Replace colors based on mapping.
-        
+
         Args:
             content: SVG content as string
-            
+
         Returns:
             Modified SVG content
         """
         modified = content
-        
+
         for old_color, new_color in self.color_map.items():
             # Replace in various formats
             patterns = [
-                (f'fill:{old_color};', f'fill:{new_color};'),
+                (f"fill:{old_color};", f"fill:{new_color};"),
                 (f'fill="{old_color}"', f'fill="{new_color}"'),
-                (f'stroke:{old_color};', f'stroke:{new_color};'),
+                (f"stroke:{old_color};", f"stroke:{new_color};"),
                 (f'stroke="{old_color}"', f'stroke="{new_color}"'),
             ]
-            
+
             for pattern, replacement in patterns:
                 modified = modified.replace(pattern, replacement)
-        
+
         return modified
 
 
 class SVGFillUnifyFilter(Filter):
     """Unify all fills to the most common or specified color."""
-    
+
     def __init__(self, config: FilterConfig | None = None) -> None:
         """Initialize filter.
-        
+
         Args:
             config: Filter configuration
         """
@@ -201,61 +204,62 @@ class SVGFillUnifyFilter(Filter):
         if config and config.parameters:
             self.target_color = config.parameters.get("target_color")
             self.use_most_common = config.parameters.get("use_most_common", True)
-    
+
     @property
     def name(self) -> str:
         """Filter identifier."""
         return "fill_unify"
-    
+
     @property
     def description(self) -> str:
         """Human-readable description."""
         return "Unify all fill colors"
-    
+
     @property
     def supported_formats(self) -> set[str]:
         """Set of supported file formats."""
         return {"svg"}
-    
-    def apply(self, content: str) -> str:
+
+    # SVG filters only ever handle str, so they narrow the generic base.
+    def apply(self, content: str) -> str:  # type: ignore[override]
         """Unify fill colors.
-        
+
         Args:
             content: SVG content as string
-            
+
         Returns:
             Modified SVG content
         """
         # Find all fill colors
-        fill_pattern = r'fill:([^;]+);'
+        fill_pattern = r"fill:([^;]+);"
         fills = re.findall(fill_pattern, content)
-        
+
         if not fills:
             return content
-        
+
         # Determine target color
         if self.use_most_common and not self.target_color:
             # Find most common fill
-            fill_counts = Counter(fills)
-            # Exclude 'none' and transparent colors
-            fill_counts = {
-                k: v for k, v in fill_counts.items()
-                if k not in ['none', 'transparent', 'rgba(0,0,0,0)']
-            }
+            # Count fills, excluding 'none' and transparent colors.
+            fill_counts = Counter(
+                fill
+                for fill in fills
+                if fill not in ("none", "transparent", "rgba(0,0,0,0)")
+            )
             if fill_counts:
                 self.target_color = fill_counts.most_common(1)[0][0]
-        
+
         if not self.target_color:
             return content
-        
+
         # Replace all fills except 'none'
-        def replace_fill(match):
+        def replace_fill(match: re.Match[str]) -> str:
             current_fill = match.group(1)
-            if current_fill in ['none', 'transparent']:
+            if current_fill in ["none", "transparent"]:
                 return match.group(0)
-            return f'fill:{self.target_color};'
-        
+            return f"fill:{self.target_color};"
+
         modified = re.sub(fill_pattern, replace_fill, content)
-        
+
         logger.debug(f"Unified fills to {self.target_color}")
         return modified

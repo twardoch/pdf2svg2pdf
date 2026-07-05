@@ -67,19 +67,14 @@ clean:
 # Code quality targets
 lint:
 	@echo "🔍 Running linting checks..."
-	flake8 src tests
-	bandit -r src/
-	mypy src/
+	ruff check src tests
+	ruff format --check src tests
+	mypy src/pdf2svg2pdf
 
 format:
 	@echo "✨ Formatting code..."
-	black src tests
-	isort src tests
-
-security:
-	@echo "🔒 Running security scans..."
-	bandit -r src/
-	safety check
+	ruff check --fix src tests
+	ruff format src tests
 
 # Release targets
 release:

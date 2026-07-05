@@ -1,77 +1,49 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to this project are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the project uses
+git-tag-based [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added - Major Refactoring
-- Complete architectural refactoring with modern Python 3.12+ patterns
-- New modular structure with clear separation of concerns:
-  - `core/` - Main converter and pipeline logic
-  - `backends/` - Pluggable backend implementations (Poppler, Fitz, Cairo)
-  - `filters/` - Extensible filter system for PDF and SVG transformations
-  - `utils/` - Comprehensive utilities for I/O, validation, security, and async operations
-- Rich CLI interface with progress bars and beautiful formatting
-- Comprehensive configuration management system:
-  - Support for YAML/TOML configuration files
-  - Environment variable overrides
-  - Validation and merging of configurations
-- Security enhancements:
-  - Input sanitization and validation
-  - Path traversal protection
-  - Secure subprocess execution (no more shell=True)
-  - SVG content sanitization
-- Async/await support throughout with sync wrappers
-- Plugin architecture for backends and filters
-- Comprehensive error handling with custom exception hierarchy
-- Type hints throughout (mypy strict mode compatible)
-- Loguru-based structured logging with correlation IDs
-- Progress tracking and cancellation support
-- Atomic file operations for safety
-- Resource management with context managers
-- New filters: grayscale, compress, optimize, transparent_white, color_replace, fill_unify
+### Build & packaging
+- Migrated the build backend from setuptools + `setuptools_scm` to
+  **hatchling + hatch-vcs**; the version now derives from git tags and lands in
+  a git-ignored `src/pdf2svg2pdf/_version.py`.
+- Removed the dual `setup.py` / `setup.cfg` / `.isort.cfg` build config and the
+  stale pinned `requirements.txt`.
+- Added `cairosvg` as a real dependency — the pipeline shells out to it but it
+  was never declared.
+- Added GitHub Actions `ci.yml` (ruff, ruff-format, mypy, pytest on Python 3.12
+  and 3.13) and `release.yml` (build, GitHub release, PyPI trusted publishing on
+  tag push); removed the old root `ci-workflow.yml`.
 
-### Added - Infrastructure
-- Git-tag-based semantic versioning with setuptools-scm
-- Comprehensive test suite with pytest
-- Build, test, and release scripts for local development
-- GitHub Actions CI/CD pipeline with multiplatform support
-- Binary artifact creation for Linux, macOS, and Windows
-- Pre-commit hooks for code quality
-- Security scanning with bandit and safety
-- Coverage reporting with codecov
-- Automated PyPI publishing on releases
+### Code
+- Replaced the broken test suite (it was written against methods that never
+  existed — `check_dependencies`, a `main` in the classic module, `cli(args)`)
+  with tests that exercise the real API, plus a genuine PDF→SVG→PDF round-trip
+  test that skips cleanly when Poppler or a working `cairosvg` is absent.
+- Fixed a real bug in `core.pipeline`: `AsyncPool.submit` is a coroutine and was
+  called without `await`, so pages were never scheduled onto the pool.
+- Broke a `core` ↔ `backends` import cycle by importing the backend registry
+  lazily inside the methods that use it.
+- Fixed `retry_async` raising a possibly-`None` exception, and a missing `Any`
+  import in `utils.io`.
+- Added type hints and a filter-API docstring to the classic module.
 
-### Changed
-- Migrated from basic subprocess calls to secure command execution
-- Unified PDF2SVG2PDF and pdf2svg2pdf_classic implementations
-- Improved performance with parallel processing enhancements
-- Enhanced CLI with rich formatting and interactive features
-- Better error messages with context and recovery suggestions
-- Updated pre-commit configuration with additional hooks
-- Enhanced GitHub Actions workflow for better CI/CD
-- Improved project structure for better maintainability
-- Updated to Python 3.12+ with modern features
+### Quality
+- Switched linting/formatting to **ruff** (replacing black, isort, flake8,
+  bandit) and made `ruff check`, `ruff format`, and strict-ish `mypy` pass
+  cleanly across the package.
+- Updated `.pre-commit-config.yaml` and the `Makefile` to the ruff/mypy toolchain.
 
-### Security
-- Added comprehensive input validation
-- Implemented secure temporary file handling
-- Added command injection prevention
-- SVG content sanitization to prevent XSS-like attacks
-- Path traversal protection
-- Secure file permissions for temporary files
+### Docs
+- Rewrote the README from ~320 lines to a focused overview with an accurate API
+  (the old one claimed `process()` returned a path — it does not).
+- Replaced the Sphinx/ReadTheDocs docs with a Jekyll + Just-the-Docs site under
+  `docs/` (home, usage, filters), and documented the external binary
+  dependencies and the two filter hooks.
 
-### Fixed
-- Various code quality improvements
-- Better error handling and testing coverage
-- Resource cleanup on errors
-- Memory efficiency improvements
-
-## [0.1.0] - Initial Release
-- Basic PDF to SVG to PDF conversion functionality
-- Command-line interface
-- Python library interface
-- Support for filters and modifications
+## [0.1.0] — Initial work
+- PDF→SVG→PDF conversion pipeline, CLI, and Python library.
+- Modular backend/filter architecture and the classic script-style module.

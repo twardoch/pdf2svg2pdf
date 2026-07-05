@@ -6,9 +6,10 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
+from typing import Any
 
 from loguru import logger
 
@@ -17,11 +18,11 @@ from ..types import PathLike
 
 def ensure_directory(path: PathLike, mode: int = 0o755) -> Path:
     """Ensure directory exists with proper permissions.
-    
+
     Args:
         path: Directory path
         mode: Directory permissions
-        
+
     Returns:
         Path object
     """
@@ -36,11 +37,11 @@ def safe_temp_directory(
     cleanup: bool = True,
 ) -> Generator[Path, None, None]:
     """Create a temporary directory with cleanup.
-    
+
     Args:
         prefix: Directory name prefix
         cleanup: Whether to cleanup on exit
-        
+
     Yields:
         Path to temporary directory
     """
@@ -52,6 +53,7 @@ def safe_temp_directory(
     finally:
         if temp_dir and cleanup and temp_dir.exists():
             import shutil
+
             shutil.rmtree(temp_dir)
             logger.debug(f"Cleaned up temporary directory: {temp_dir}")
 
@@ -63,12 +65,12 @@ def atomic_write(
     encoding: str = "utf-8",
 ) -> Generator[Any, None, None]:
     """Write file atomically using a temporary file.
-    
+
     Args:
         path: Target file path
         mode: File mode
         encoding: Text encoding
-        
+
     Yields:
         File handle
     """
@@ -78,7 +80,7 @@ def atomic_write(
         prefix=f".{path.name}.",
         suffix=".tmp",
     )
-    
+
     try:
         if "b" in mode:
             with os.fdopen(temp_fd, mode) as f:
@@ -86,7 +88,7 @@ def atomic_write(
         else:
             with os.fdopen(temp_fd, mode, encoding=encoding) as f:
                 yield f
-        
+
         # Atomic rename
         os.replace(temp_path, path)
         logger.debug(f"Atomically wrote file: {path}")
@@ -101,10 +103,10 @@ def atomic_write(
 
 def get_file_size_mb(path: PathLike) -> float:
     """Get file size in megabytes.
-    
+
     Args:
         path: File path
-        
+
     Returns:
         Size in MB
     """
@@ -117,11 +119,11 @@ def read_file_chunked(
     chunk_size: int = 8192,
 ) -> Generator[bytes, None, None]:
     """Read file in chunks.
-    
+
     Args:
         path: File path
         chunk_size: Size of each chunk
-        
+
     Yields:
         File chunks
     """

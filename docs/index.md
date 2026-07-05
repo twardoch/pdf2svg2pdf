@@ -1,39 +1,49 @@
+---
+title: Home
+layout: default
+nav_order: 1
+---
+
 # pdf2svg2pdf
 
-CLI tool and Python library that splits a multi-page PDF into single pages, converts them to SVG, applies some modifications, converts back to PDF and makes a new multi-page PDF
+Take a PDF apart into vectors, change the vectors, put it back together as a PDF.
 
+`pdf2svg2pdf` splits a PDF into single pages, turns each page into an SVG, lets
+you rewrite that SVG (or the source PDF) with a filter, then renders the pages
+back to PDF and merges them. SVG is the middle step because it is plain XML: a
+regex or a string replace can recolour a fill or strip an element that a PDF
+editor would fight you over, and nothing gets rasterised, so the output stays as
+sharp as the input.
 
-## Note
-
-> This is the main page of your project's [Sphinx] documentation. It is
-> formatted in [Markdown]. Add additional pages by creating md-files in
-> `docs` or rst-files (formatted in [reStructuredText]) and adding links to
-> them in the `Contents` section below.
->
-> Please check [Sphinx] and [MyST] for more information
-> about how to document your project and how to configure your preferences.
-
-
-## Contents
-
-```{toctree}
-:maxdepth: 2
-
-Overview <readme>
-Contributions & Help <contributing>
-License <license>
-Authors <authors>
-Changelog <changelog>
-Module Reference <api/modules>
+```bash
+pip install pdf2svg2pdf
+pdf2svg2pdf convert input.pdf --output out.pdf
 ```
 
-## Indices and tables
+## The pipeline
 
-* {ref}`genindex`
-* {ref}`modindex`
-* {ref}`search`
+1. **Split** the PDF into one PDF per page (`pdfseparate` or PyMuPDF).
+2. **PDF to SVG** for each page (`pdftocairo -svg`).
+3. **Filter** the SVG (or the PDF, before the split) — optional.
+4. **SVG to PDF** for each page (`cairosvg`).
+5. **Merge** the pages into the final PDF (`pdfunite`).
 
-[Sphinx]: http://www.sphinx-doc.org/
-[Markdown]: https://daringfireball.net/projects/markdown/
-[reStructuredText]: http://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
-[MyST]: https://myst-parser.readthedocs.io/en/latest/
+## External dependencies
+
+The pipeline shells out to a few tools. Install them before you run it:
+
+- **Poppler** — provides `pdfseparate`, `pdfunite`, `pdftocairo`.
+  - macOS: `brew install poppler`
+  - Debian/Ubuntu: `sudo apt-get install poppler-utils`
+- **cairosvg** — the SVG-to-PDF renderer. Installed as a Python dependency, but
+  it needs the native cairo library:
+  - macOS: `brew install cairo`
+  - Debian/Ubuntu: `sudo apt-get install libcairo2`
+
+Optional, only for specific filters: `gs` (Ghostscript, for grayscale) and
+`svgo` (for SVG optimisation).
+
+## Next
+
+- [Usage](usage.md) — the CLI and the Python API.
+- [Filters](filters.md) — the filter hooks and a worked grayscale example.

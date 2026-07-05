@@ -1,0 +1,14 @@
+# this_file: docs/_config.yml
+title: pdf2svg2pdf
+description: Convert PDF to SVG and back, with vector-level edits in between
+remote_theme: just-the-docs/just-the-docs
+url: https://twardoch.github.io/pdf2svg2pdf
+
+aux_links:
+  GitHub: https://github.com/twardoch/pdf2svg2pdf
+
+color_scheme: light
+search_enabled: true
+
+plugins:
+  - jekyll-remote-theme

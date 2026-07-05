@@ -11,34 +11,34 @@ from pathlib import Path
 from loguru import logger
 
 from ..types import FilterConfig
-from ..utils.async_utils import run_async
 from .base import Filter
 
 
 class GrayscaleFilter(Filter):
     """Convert PDF to grayscale using Ghostscript."""
-    
+
     @property
     def name(self) -> str:
         """Filter identifier."""
         return "grayscale"
-    
+
     @property
     def description(self) -> str:
         """Human-readable description."""
         return "Convert PDF to grayscale"
-    
+
     @property
     def supported_formats(self) -> set[str]:
         """Set of supported file formats."""
         return {"pdf"}
-    
-    def apply(self, content: bytes) -> bytes:
+
+    # PDF filters only ever handle bytes, so they narrow the generic base.
+    def apply(self, content: bytes) -> bytes:  # type: ignore[override]
         """Apply grayscale conversion to PDF.
-        
+
         Args:
             content: PDF content as bytes
-            
+
         Returns:
             Grayscale PDF content
         """
@@ -48,15 +48,15 @@ class GrayscaleFilter(Filter):
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.warning("Ghostscript not available, skipping grayscale filter")
             return content
-        
+
         # Create temporary files
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as input_file:
             input_path = Path(input_file.name)
             input_file.write(content)
-        
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as output_file:
             output_path = Path(output_file.name)
-        
+
         try:
             # Run ghostscript
             command = [
@@ -70,18 +70,18 @@ class GrayscaleFilter(Filter):
                 "-dBATCH",
                 str(input_path),
             ]
-            
-            result = subprocess.run(
+
+            subprocess.run(
                 command,
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            
+
             # Read output
             with open(output_path, "rb") as f:
                 return f.read()
-                
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Ghostscript failed: {e.stderr}")
             raise
@@ -93,10 +93,10 @@ class GrayscaleFilter(Filter):
 
 class PDFCompressFilter(Filter):
     """Compress PDF using Ghostscript."""
-    
+
     def __init__(self, config: FilterConfig | None = None) -> None:
         """Initialize filter.
-        
+
         Args:
             config: Filter configuration
         """
@@ -105,28 +105,29 @@ class PDFCompressFilter(Filter):
         self.quality = "screen"  # screen, ebook, printer, prepress
         if config and config.parameters:
             self.quality = config.parameters.get("quality", self.quality)
-    
+
     @property
     def name(self) -> str:
         """Filter identifier."""
         return "compress"
-    
+
     @property
     def description(self) -> str:
         """Human-readable description."""
         return "Compress PDF file size"
-    
+
     @property
     def supported_formats(self) -> set[str]:
         """Set of supported file formats."""
         return {"pdf"}
-    
-    def apply(self, content: bytes) -> bytes:
+
+    # PDF filters only ever handle bytes, so they narrow the generic base.
+    def apply(self, content: bytes) -> bytes:  # type: ignore[override]
         """Apply compression to PDF.
-        
+
         Args:
             content: PDF content as bytes
-            
+
         Returns:
             Compressed PDF content
         """
@@ -136,15 +137,15 @@ class PDFCompressFilter(Filter):
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.warning("Ghostscript not available, skipping compress filter")
             return content
-        
+
         # Create temporary files
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as input_file:
             input_path = Path(input_file.name)
             input_file.write(content)
-        
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as output_file:
             output_path = Path(output_file.name)
-        
+
         try:
             # Run ghostscript with compression
             command = [
@@ -158,18 +159,18 @@ class PDFCompressFilter(Filter):
                 "-dQUIET",
                 str(input_path),
             ]
-            
-            result = subprocess.run(
+
+            subprocess.run(
                 command,
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            
+
             # Read output
             with open(output_path, "rb") as f:
                 compressed = f.read()
-            
+
             # Log compression ratio
             original_size = len(content)
             compressed_size = len(compressed)
@@ -178,9 +179,9 @@ class PDFCompressFilter(Filter):
                 f"Compressed PDF from {original_size} to {compressed_size} bytes "
                 f"({ratio:.1f}% reduction)"
             )
-            
+
             return compressed
-                
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Ghostscript compression failed: {e.stderr}")
             raise

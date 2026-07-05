@@ -4,11 +4,11 @@
 
 from .converter import Converter
 from .exceptions import (
-    PDF2SVG2PDFError,
     BackendError,
-    FilterError,
-    ValidationError,
     ConfigurationError,
+    FilterError,
+    PDF2SVG2PDFError,
+    ValidationError,
 )
 from .pipeline import ProcessingPipeline
 

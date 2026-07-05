@@ -2,40 +2,29 @@
 # this_file: src/pdf2svg2pdf/__init__.py
 """PDF to SVG to PDF converter with optional transformations."""
 
-import sys
-
-if sys.version_info[:2] >= (3, 8):
-    # TODO: Import directly (no need for conditional) when `python_requires = >= 3.8`
-    from importlib.metadata import PackageNotFoundError, version  # pragma: no cover
-else:
-    from importlib_metadata import PackageNotFoundError, version  # pragma: no cover
+from importlib.metadata import PackageNotFoundError, version
 
 try:
-    # Change here if project is renamed and does not equal the package name
-    dist_name = __name__
-    __version__ = version(dist_name)
-except PackageNotFoundError:  # pragma: no cover
-    __version__ = "unknown"
-finally:
-    del version, PackageNotFoundError
+    __version__ = version("pdf2svg2pdf")
+except PackageNotFoundError:  # pragma: no cover - only when running from a raw checkout
+    __version__ = "0.0.0"
 
 # New API imports
+from .backends import Backend, BackendRegistry
 from .config import Configuration, load_configuration
 from .core import (
-    Converter,
-    ProcessingPipeline,
-    PDF2SVG2PDFError,
     BackendError,
-    FilterError,
-    ValidationError,
     ConfigurationError,
+    Converter,
+    FilterError,
+    PDF2SVG2PDFError,
+    ProcessingPipeline,
+    ValidationError,
 )
-from .backends import Backend, BackendRegistry
 from .filters import Filter, FilterRegistry
 
 # Legacy API imports for backwards compatibility
-from .pdf2svg2pdf import PDF2SVG2PDF
-from .pdf2svg2pdf import convert_pdfs
+from .pdf2svg2pdf import PDF2SVG2PDF, convert_pdfs
 
 __all__ = [
     # Version

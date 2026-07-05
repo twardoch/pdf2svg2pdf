@@ -14,32 +14,32 @@ from ..types import PathLike
 
 def sanitize_path(path: PathLike) -> Path:
     """Sanitize a file path for security.
-    
+
     Args:
         path: Path to sanitize
-        
+
     Returns:
         Sanitized path
-        
+
     Raises:
         ValidationError: If path is invalid
     """
     path = Path(path)
-    
+
     # Remove any null bytes
     path_str = str(path).replace("\0", "")
-    
+
     # Normalize the path
     path = Path(path_str).resolve()
-    
+
     # Check for suspicious patterns
     suspicious_patterns = [
         r"\.\./",  # Parent directory traversal
-        r"^\.",    # Hidden files
-        r"~",      # Home directory expansion
-        r"\$",     # Variable expansion
+        r"^\.",  # Hidden files
+        r"~",  # Home directory expansion
+        r"\$",  # Variable expansion
     ]
-    
+
     for pattern in suspicious_patterns:
         if re.search(pattern, str(path)):
             raise ValidationError(
@@ -47,7 +47,7 @@ def sanitize_path(path: PathLike) -> Path:
                 field="path",
                 value=str(path),
             )
-    
+
     return path
 
 
@@ -56,66 +56,68 @@ def check_path_traversal(
     base_dir: PathLike,
 ) -> None:
     """Check for path traversal attacks.
-    
+
     Args:
         path: Path to check
         base_dir: Base directory that path should be within
-        
+
     Raises:
         ValidationError: If path traversal detected
     """
     path = Path(path).resolve()
     base_dir = Path(base_dir).resolve()
-    
+
     try:
         path.relative_to(base_dir)
-    except ValueError:
+    except ValueError as err:
         raise ValidationError(
             f"Path traversal detected: {path} is outside {base_dir}",
             field="path",
             value=str(path),
             details={"base_dir": str(base_dir)},
-        )
+        ) from err
 
 
 def sanitize_svg_content(content: str) -> str:
     """Sanitize SVG content for security.
-    
+
     Args:
         content: SVG content
-        
+
     Returns:
         Sanitized content
     """
     # Remove potentially dangerous elements
     dangerous_patterns = [
         (r"<script[^>]*>.*?</script>", ""),  # Scripts
-        (r"<embed[^>]*>", ""),               # Embedded content
+        (r"<embed[^>]*>", ""),  # Embedded content
         (r"<object[^>]*>.*?</object>", ""),  # Objects
         (r"<iframe[^>]*>.*?</iframe>", ""),  # Iframes
-        (r"on\w+\s*=\s*[\"'].*?[\"']", ""), # Event handlers
-        (r"javascript:", ""),                 # JavaScript URLs
-        (r"data:text/html", ""),             # Data URLs with HTML
+        (r"on\w+\s*=\s*[\"'].*?[\"']", ""),  # Event handlers
+        (r"javascript:", ""),  # JavaScript URLs
+        (r"data:text/html", ""),  # Data URLs with HTML
     ]
-    
+
     sanitized = content
     for pattern, replacement in dangerous_patterns:
-        sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE | re.DOTALL)
-    
+        sanitized = re.sub(
+            pattern, replacement, sanitized, flags=re.IGNORECASE | re.DOTALL
+        )
+
     return sanitized
 
 
 def validate_command_args(args: list[str]) -> None:
     """Validate command arguments for security.
-    
+
     Args:
         args: Command arguments
-        
+
     Raises:
         ValidationError: If arguments are invalid
     """
     dangerous_chars = [";", "&", "|", "`", "$", "(", ")", "{", "}", "[", "]", "<", ">"]
-    
+
     for arg in args:
         for char in dangerous_chars:
             if char in arg:
@@ -128,20 +130,20 @@ def validate_command_args(args: list[str]) -> None:
 
 def create_secure_temp_dir(prefix: str = "pdf2svg2pdf_") -> Path:
     """Create a secure temporary directory.
-    
+
     Args:
         prefix: Directory name prefix
-        
+
     Returns:
         Path to secure temporary directory
     """
     import tempfile
-    
+
     # Create with restrictive permissions
     temp_dir = tempfile.mkdtemp(prefix=prefix)
     path = Path(temp_dir)
-    
+
     # Set secure permissions (owner only)
     os.chmod(path, 0o700)
-    
+
     return path

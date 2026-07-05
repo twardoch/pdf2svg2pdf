@@ -9,10 +9,10 @@ from typing import Any
 
 class PDF2SVG2PDFError(Exception):
     """Base exception for all pdf2svg2pdf errors."""
-    
+
     def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         """Initialize exception with message and optional details.
-        
+
         Args:
             message: Error message
             details: Additional error context
@@ -23,7 +23,7 @@ class PDF2SVG2PDFError(Exception):
 
 class BackendError(PDF2SVG2PDFError):
     """Error related to backend operations."""
-    
+
     def __init__(
         self,
         message: str,
@@ -32,7 +32,7 @@ class BackendError(PDF2SVG2PDFError):
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize backend error.
-        
+
         Args:
             message: Error message
             backend_name: Name of the backend that failed
@@ -46,7 +46,7 @@ class BackendError(PDF2SVG2PDFError):
 
 class FilterError(PDF2SVG2PDFError):
     """Error related to filter operations."""
-    
+
     def __init__(
         self,
         message: str,
@@ -54,7 +54,7 @@ class FilterError(PDF2SVG2PDFError):
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize filter error.
-        
+
         Args:
             message: Error message
             filter_name: Name of the filter that failed
@@ -66,7 +66,7 @@ class FilterError(PDF2SVG2PDFError):
 
 class ValidationError(PDF2SVG2PDFError):
     """Error related to input validation."""
-    
+
     def __init__(
         self,
         message: str,
@@ -75,7 +75,7 @@ class ValidationError(PDF2SVG2PDFError):
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize validation error.
-        
+
         Args:
             message: Error message
             field: Field that failed validation
@@ -89,7 +89,7 @@ class ValidationError(PDF2SVG2PDFError):
 
 class ConfigurationError(PDF2SVG2PDFError):
     """Error related to configuration."""
-    
+
     def __init__(
         self,
         message: str,
@@ -97,7 +97,7 @@ class ConfigurationError(PDF2SVG2PDFError):
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize configuration error.
-        
+
         Args:
             message: Error message
             config_key: Configuration key that caused the error
@@ -109,7 +109,7 @@ class ConfigurationError(PDF2SVG2PDFError):
 
 class DependencyError(PDF2SVG2PDFError):
     """Error related to missing dependencies."""
-    
+
     def __init__(
         self,
         message: str,
@@ -118,7 +118,7 @@ class DependencyError(PDF2SVG2PDFError):
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize dependency error.
-        
+
         Args:
             message: Error message
             dependency: Name of missing dependency
@@ -132,7 +132,7 @@ class DependencyError(PDF2SVG2PDFError):
 
 class ProcessingError(PDF2SVG2PDFError):
     """Error during processing pipeline."""
-    
+
     def __init__(
         self,
         message: str,
@@ -141,7 +141,7 @@ class ProcessingError(PDF2SVG2PDFError):
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize processing error.
-        
+
         Args:
             message: Error message
             page_number: Page number where error occurred
@@ -155,7 +155,7 @@ class ProcessingError(PDF2SVG2PDFError):
 
 class TimeoutError(PDF2SVG2PDFError):
     """Operation timed out."""
-    
+
     def __init__(
         self,
         message: str,
@@ -164,7 +164,7 @@ class TimeoutError(PDF2SVG2PDFError):
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize timeout error.
-        
+
         Args:
             message: Error message
             operation: Operation that timed out

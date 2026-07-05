@@ -15,11 +15,17 @@ class PDF2SVG2PDF:
         inpath: str,
         outdir: str = None,
         advanced: bool = False,
-        backends: list[str] = [],
+        backends: list[str] = None,
         verbose: bool = False,
-        pdf_filters=[],
-        svg_filters=[],
+        pdf_filters=None,
+        svg_filters=None,
     ):
+        if svg_filters is None:
+            svg_filters = []
+        if pdf_filters is None:
+            pdf_filters = []
+        if backends is None:
+            backends = []
         self.inpath = Path(inpath)
         self.stem = self.inpath.stem
         self.outdir = self.inpath.parent if outdir is None else Path(outdir)

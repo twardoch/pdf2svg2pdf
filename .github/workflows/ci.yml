@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, type-check, test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # hatch-vcs needs full history for versioning
+
+      - name: Install external binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils libcairo2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: uv pip install --system -e '.[dev]'
+
+      - name: Ruff (lint)
+        run: ruff check src tests
+
+      - name: Ruff (format)
+        run: ruff format --check src tests
+
+      - name: Mypy
+        run: mypy src/pdf2svg2pdf
+
+      - name: Pytest
+        run: pytest --cov=src/pdf2svg2pdf --cov-report=term-missing

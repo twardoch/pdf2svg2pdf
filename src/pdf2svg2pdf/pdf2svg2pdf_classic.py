@@ -1,4 +1,22 @@
 #!/usr/bin/env python3
+# this_file: src/pdf2svg2pdf/pdf2svg2pdf_classic.py
+"""Classic, script-style PDF->SVG->PDF pipeline with pluggable filters.
+
+SVG is the intermediate format on purpose: it is plain XML, so a filter can
+rewrite fills, strip elements, or run an optimiser with a regex or a string
+replace -- no PDF object model, no rasterisation, no loss of vector quality.
+
+Two filter hooks run at different stages:
+
+- **PDF filters** run on the raw PDF bytes before the page is split. Signature:
+  ``(pdf_bytes: bytes) -> bytes``. Example: :func:`pdf_grayscale`.
+- **SVG filters** run on each page's SVG text after conversion. Signature:
+  ``(svg: str) -> str``. Example: :func:`svg_transparent_white`.
+
+Filters are passed on the command line as a comma-separated list of Python
+expressions (evaluated with :func:`eval`), so only feed this trusted input.
+"""
+
 import concurrent.futures
 import re
 import subprocess
@@ -171,7 +189,8 @@ def pdf2svg2pdf(
             list(executor.map(process_func, tasks))
 
 
-def svgo(svg):
+def svgo(svg: str) -> str:
+    """SVG filter: shrink markup by piping it through the ``svgo`` optimiser."""
     return subprocess.run(
         "svgo --input - --output -",
         shell=True,
@@ -182,7 +201,8 @@ def svgo(svg):
     ).stdout
 
 
-def pdf_grayscale(pdf_bytes):
+def pdf_grayscale(pdf_bytes: bytes) -> bytes:
+    """PDF filter: convert every page to grayscale via Ghostscript."""
     cmd = (
         "gs -sOutputFile=- -sDEVICE=pdfwrite -sColorConversionStrategy=Gray "
         "-dProcessColorModel=/DeviceGray -dCompatibilityLevel=1.4 -dNOPAUSE -dBATCH -_"
@@ -197,15 +217,18 @@ def pdf_grayscale(pdf_bytes):
     return proc.stdout
 
 
-def svg_frequency_fills(svg):
+def svg_frequency_fills(svg: str) -> list[tuple[str, int]]:
+    """Return ``fill:`` style values found in the SVG, most frequent first."""
     return sorted(Counter(re.findall(r"fill:(.*?);", svg)).items(), key=lambda x: -x[1])
 
 
-def svg_transparent_white(svg):
+def svg_transparent_white(svg: str) -> str:
+    """SVG filter: turn pure-white fills into ``fill:none`` (transparent)."""
     return re.sub(r"fill:rgb\(100%,100%,100%\);", r"fill:none;", svg)
 
 
-def svg_one_fill(svg, freq_index):
+def svg_one_fill(svg: str, freq_index: int) -> str:
+    """Collapse every visible fill onto the ``freq_index``-th most common one."""
     svg = svg_transparent_white(svg)
     svg_fill_freq = svg_frequency_fills(svg)
 
@@ -215,11 +238,13 @@ def svg_one_fill(svg, freq_index):
     return svg
 
 
-def svg_fill0(svg):
+def svg_fill0(svg: str) -> str:
+    """SVG filter: repaint everything with the most common fill colour."""
     return svg_one_fill(svg, 0)
 
 
-def svg_fill1(svg):
+def svg_fill1(svg: str) -> str:
+    """SVG filter: repaint everything with the second most common fill colour."""
     return svg_one_fill(svg, 1)
 
 
